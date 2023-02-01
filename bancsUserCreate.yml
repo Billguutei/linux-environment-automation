@@ -1,0 +1,36 @@
+---
+- hosts: localhost
+  gather_facts: no
+
+  tasks:
+    - name: set facts
+      set_fact: 
+        ip_address: "{{ SERVER.split('.') }}"
+      register: micro_output
+
+    - name: set facts
+      set_fact: 
+        check_ip: "{{ micro_output.ansible_facts.ip_address[0] }}.{{ micro_output.ansible_facts.ip_address[1] }}.{{ micro_output.ansible_facts.ip_address[2] }}"
+        test_server: false
+
+    - name: set facts
+      set_fact: 
+        test_server: true
+      when: check_ip == "192.168.6" or check_ip == "192.168.26" or check_ip == "192.168.3" or check_ip == "192.168.7" or check_ip == "192.168.30"
+
+    - fail:
+        msg: "It is not test server ip address"
+      when: test_server != true
+
+    - name: create user
+      shell: |
+        source ansible
+        sqlplus -s /nolog <<EOF
+        connect ansible/ansible123@{{ bancs_db_host_ip }}
+        create user {{ USER_NAME }} identified by {{"USER_PASSWORD"}};
+        grant dba to {{ USER_NAME }};
+        commit;
+        quit;
+        EOF
+      delegate_to: "{{ bancs_db_host_ip }}"
+      ignore_errors: yes

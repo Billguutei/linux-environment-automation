@@ -1,0 +1,89 @@
+- name: Install Java
+  hosts: localhost
+  gather_facts: 'no'
+  tasks:
+    - name: set facts
+      set_fact:
+        ip_address: '{{ SERVER.split(''.'') }}'
+      register: micro_output
+
+    - name: set facts
+      set_fact:
+        check_ip: >-
+          {{ micro_output.ansible_facts.ip_address[0] }}.{{
+          micro_output.ansible_facts.ip_address[1] }}.{{
+          micro_output.ansible_facts.ip_address[2] }}
+        test_server: false
+
+    - name: set facts
+      set_fact:
+        test_server: true
+      when: >-
+        check_ip == "192.168.6" or check_ip == "192.168.26" or check_ip ==
+        "192.168.3" or check_ip == "192.168.7" or check_ip == "192.168.30"
+
+    - fail:
+        msg: It is not test server ip address
+      when: test_server != true
+
+    - name: set facts
+      set_fact:
+        version: '{{ JAVA_VERSION }}'
+      register: java_version
+
+    - name: mkdir .ssh
+      command: mkdir /root/.ssh
+      delegate_to: "{{ SERVER }}"
+      ignore_errors: yes
+
+    - name: touch authorized_keys
+      command: touch /root/.ssh/authorized_keys
+      delegate_to: "{{ SERVER }}"
+      ignore_errors: yes
+
+    - name: add ssl pub key
+      shell: |
+        sed -i -e '$assh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCsglTe0nb6z0rqjPukjOSHQclk9lcSWprKoB1/aKddG64uOhDz94vXz7d2DaA38GagKACrNHMN2zTni/FYf1YZStV/qN7ZTG0NyCkpQ/P604EoKsv53U6lmXpNYRE+9HcTvFEqQkRdO2s3IlJMTu2lXriGjwtNncdyn3SgyEcTcAsTcGgyRUKPzFvbtoW3DxtK2UlNNa18LqzzBqezLoYqZ1LiwUgAXxN3PdGT5sNoXr4unCgIN+7GuuYA3k30bew2zZbgBFRnc43Ca0R/dNSscrnJzg4NIFut4NTwfgz5d6r6og/VWlAZN0J73/q0uISzvkk3EnMz8YPehCmSkOEx subsystem@srsapptv1494' /root/.ssh/authorized_keys
+      delegate_to: '{{SERVER}}'
+
+    - name: Copy file from 6.31
+      command: scp -o StrictHostKeyChecking=no -r /itqad/Devops/Devops\ intalls/openjdk-8u41-b04-linux-x64-14_jan_2020.tar.gz root@"{{SERVER}}":/home
+      async: 20000
+      delegate_to: 192.168.6.31
+      when: version == "1.8"
+
+    - name: Extract 1.8 tar file
+      shell: |
+        tar xvf /home/openjdk-8u41-b04-linux-x64-14_jan_2020.tar.gz            
+      delegate_to: '{{ SERVER }}'
+      when: version == "1.8"
+
+    - name: Install Java 1.8 version from a local file
+      shell: |
+        sudo update-alternatives --install "/usr/bin/java" "java" "/home/java-se-8u41-ri/bin/java" 1         
+      delegate_to: '{{ SERVER }}'
+      when: version == "1.8"
+
+    - name: Copy file from 6.31
+      shell: |
+        scp /itqad/Devops/Devops\intalls/java-1.6.0-openjdk-1.6.0.41.x86_64.tar.gz root@"{{SERVER}}":/home
+      delegate_to: 192.168.6.31
+      when: version == "1.6"
+
+    - name: Extract java 1.6 tar.gz file
+      shell: |
+        tar xvf /home/java-1.6.0-openjdk-1.6.0.41.x86_64.tar.gz            
+      delegate_to: '{{ SERVER }}'
+      when: version == "1.6"
+
+    - name: Install Java 1.6 version from a local file
+      shell: |
+        sudo update-alternatives --install "/usr/bin/java" "java" "/root/java-1.6.0-openjdk-1.6.0.41.x86_64/bin/java" 1         
+      delegate_to: '{{ SERVER }}'
+      when: version == "1.6"
+      
+    - name: Check java version
+      shell: |
+        java -version
+      delegate_to: '{{ SERVER }}'
+      when: version == "1.6" or version == "1.8"

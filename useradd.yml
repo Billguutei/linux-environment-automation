@@ -1,0 +1,31 @@
+---
+- name: user add
+  hosts: localhost
+  gather_facts: no
+ 
+  tasks:
+    - name: user create
+      shell: useradd discovery
+      delegate_to: "{{ SERVER_IP }}"
+      ignore_errors: yes
+      
+    - name: set password
+      shell: |
+          passwd discovery << !
+          pass123*
+          pass123*
+          ! 
+      delegate_to: "{{ SERVER_IP }}"
+      
+    - name: add commands
+      shell: |
+          sed -i 's/These are groups of related commands.../These are groups of related commands...\n User_Alias XIACONFIGURATION = discovery \n Cmnd_Alias DMIDECODE = \/usr\/sbin\/dmidecode \n XIACONFIGURATION ALL = NOPASSWD: DMIDECODE /g' /etc/sudoers
+      delegate_to: "{{ SERVER_IP }}"
+      
+    - name: login by discovery
+      shell: su discovery -c "sudo dmidecode"
+      delegate_to: "{{ SERVER_IP }}"
+      
+    # - name: execute command
+    #   shell: sudo dmidecode 
+    #   delegate_to: "{{ SERVER_IP }}"

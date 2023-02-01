@@ -1,0 +1,72 @@
+---
+- name: Install git
+  hosts: localhost
+  gather_facts: no
+
+  tasks:
+  - name: set facts
+    set_fact: 
+      ip_address: "{{ SERVER.split('.') }}"
+    register: micro_output
+
+  - name: set facts
+    set_fact: 
+      check_ip: "{{ micro_output.ansible_facts.ip_address[0] }}.{{ micro_output.ansible_facts.ip_address[1] }}.{{ micro_output.ansible_facts.ip_address[2] }}"
+      test_server: false
+
+  - name: set facts
+    set_fact: 
+      test_server: true
+    when: check_ip == "192.168.6" or check_ip == "192.168.26" or check_ip == "192.168.3" or check_ip == "192.168.7" or check_ip == "192.168.30"
+
+  - name: mkdir git
+    shell: |
+      mkdir git
+    delegate_to: "{{ SERVER }}"
+
+  - name: add ssl pub key
+    shell: |
+      sed -i -e '$assh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCsglTe0nb6z0rqjPukjOSHQclk9lcSWprKoB1/aKddG64uOhDz94vXz7d2DaA38GagKACrNHMN2zTni/FYf1YZStV/qN7ZTG0NyCkpQ/P604EoKsv53U6lmXpNYRE+9HcTvFEqQkRdO2s3IlJMTu2lXriGjwtNncdyn3SgyEcTcAsTcGgyRUKPzFvbtoW3DxtK2UlNNa18LqzzBqezLoYqZ1LiwUgAXxN3PdGT5sNoXr4unCgIN+7GuuYA3k30bew2zZbgBFRnc43Ca0R/dNSscrnJzg4NIFut4NTwfgz5d6r6og/VWlAZN0J73/q0uISzvkk3EnMz8YPehCmSkOEx subsystem@srsapptv1494' /root/.ssh/authorized_keys
+    delegate_to: '{{SERVER}}'
+
+  - name: Copy file from 6.31
+    shell: |
+      scp /itqad/Devops/Devops\ intalls/git-2.0.4.tar.gz root@"{{SERVER}}":/root/git
+    delegate_to: 192.168.6.31
+
+  - name: extract the git tar.gz
+    shell:
+      cmd: tar xzf git-2.0.4.tar.gz
+      chdir: /root/git
+    delegate_to: "{{ SERVER }}"
+
+  - name: prefix git all
+    shell:
+      cmd: make prefix=/usr/local/git all
+      chdir: /root/git/git-2.0.4
+    delegate_to: "{{ SERVER }}"
+    
+  - name: prefix git all install
+    shell:
+      cmd: make prefix=/usr/local/git install
+      chdir: /root/git/git-2.0.4
+    delegate_to: "{{ SERVER }}"
+
+  - name: add path to bashrc
+    shell:
+      cmd: echo 'export PATH=$PATH:/usr/local/git/bin' >> /etc/bashrc 
+      chdir: /root/git/git-2.0.4
+    delegate_to: "{{ SERVER }}"
+
+  - name: check git version
+    shell: |
+      git --version
+    delegate_to: "{{ SERVER }}"
+
+
+
+
+
+
+    
+

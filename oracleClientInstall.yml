@@ -1,0 +1,117 @@
+---
+- name: Install Oracle Client
+  hosts: localhost
+  gather_facts: no
+  become: yes
+
+  tasks:
+    - name: set facts
+      set_fact: 
+        ip_address: "{{ SERVER.split('.') }}"
+      register: micro_output
+
+    - name: set facts
+      set_fact: 
+        check_ip: "{{ micro_output.ansible_facts.ip_address[0] }}.{{ micro_output.ansible_facts.ip_address[1] }}.{{ micro_output.ansible_facts.ip_address[2] }}"
+        test_server: false
+
+    - name: set facts
+      set_fact: 
+        test_server: true
+      when: check_ip == "192.168.6" or check_ip == "192.168.26" or check_ip == "192.168.3" or check_ip == "192.168.7" or check_ip == "192.168.30"
+
+    - fail:
+        msg: "It is not test server ip address"
+      when: test_server != true
+
+    - name: set fact
+      set_fact:
+        oracle_client_path: "/u01"
+
+
+    - name: mkdir
+      shell: |
+        mkdir /u01
+      delegate_to: "{{ SERVER }}"
+
+    - name: mkdir .ssh
+      command: mkdir /root/.ssh
+      delegate_to: "{{ SERVER }}"
+      ignore_errors: yes      
+
+    - name: touch authorized_keys
+      command: touch /root/.ssh/authorized_keys
+      delegate_to: "{{ SERVER }}"
+      ignore_errors: yes      
+
+    - name: add ssl pub key
+      shell: |
+        sed -i -e '$assh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDHBByDU1TE2JoUxIo3u+004cp4Vz7UA3mYqdsnMEMJQ2ckOhDjMhWgennxBxR1crlpvmJAgXOO3F/0PNftH8nijMtJ3QXji1+uiBxNCMRxF3lZJrRJ9arDgGqB1MH8yMYEY7cjvQ2hyleTYPs2/uLdxrVsjC8/Yc82a94TSBz5JAW6pBC9eRqEJKm6fWbCpcyiheGqSPbENXAe/wpl+/+yZ0HCTe5dM2kZR/s/n4yjM+4R7M+g5ZGMvdxt69tIWipGj2G7Fp6Mee5UEXtaI2GvR5Si2+TigwiceECMt+Obw7F2dvV8H3wz1m6/IBdkDNetPyafOC16eEFnSTbDkwk9 subsystem@srsapptv1494' /root/.ssh/authorized_keys
+      delegate_to: "{{SERVER}}"
+
+    - name: Copy file from 6.31
+      command: scp -o StrictHostKeyChecking=no -r /itqad/Devops/Devops\ intalls/los_oracle_client.zip root@{{ SERVER }}:{{oracle_client_path}}   
+      async: 20000   
+      delegate_to: "192.168.6.31"
+
+    - name: unzip
+      shell: unzip los_oracle_client.zip
+      args:
+        chdir: "{{ oracle_client_path }}" 
+      delegate_to: "{{ SERVER }}"
+
+    # - name: adduser oracle
+    #   shell: |
+    #     adduser oracle
+    #   delegate_to: "{{ SERVER }}"
+
+    # - name: groupadd
+    #   shell: |
+    #     groupadd oinstall
+    #   delegate_to: "{{ SERVER }}"
+    #   ignore_errors: yes
+
+    # - name: usermod -a -G oinstall oracle
+    #   shell: |
+    #     usermod -a -G oinstall oracle
+    #   delegate_to: "{{ SERVER }}"
+
+    - name: chown -R oracle:oinstall /u01
+      shell: |
+        chown -R oracle:oinstall {{ oracle_client_path }} 
+      delegate_to: "{{ SERVER }}"
+
+    - name: chmod -R 775
+      shell: |
+        chmod -R 775 {{ oracle_client_path }} 
+      delegate_to: "{{ SERVER }}"
+
+    - name: sed cyberarkbackup
+      shell: |
+        sed -i 's/cyberarkbackup/#cyberarkbackup/' /etc/passwd
+      delegate_to: "{{ SERVER }}"
+
+    - name: runInstaller
+      shell: |
+        ./runInstaller -ignoreSysPrereqs -showProgress -waitforcompletion -silent -responseFile {{ oracle_client_path }}/client/response/client_install.rsp 
+      args:
+        chdir: "{{ oracle_client_path }}/client"
+      become_user: oracle
+      delegate_to: "{{ SERVER }}"
+      ignore_errors: yes
+
+    - name: sed cyberarkbackup
+      shell: |
+        sed -i 's/#cyberarkbackup/cyberarkbackup/' /etc/passwd
+      delegate_to: "{{ SERVER }}"
+
+    - name: /u01/app/oraInventory/orainstRoot.sh
+      shell: |
+        ./orainstRoot.sh
+      args:
+        chdir: "{{ oracle_client_path }}/app/oraInventory"
+      delegate_to: "{{ SERVER }}"
+
+
+
+
